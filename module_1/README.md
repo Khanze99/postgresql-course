@@ -2,9 +2,258 @@
 
 ## 1. Установка и подключение к базе данных
 
-- Как установить PostgreSQL (через Docker, пакетный менеджер, официальный сайт)
-- Как подключиться к базе (psql, pgAdmin, DBeaver, через Python/Java и т.д.)
-- Пример подключения через psql и pgAdmin
+### Установка PostgreSQL
+- Через Docker (рекомендуется для курса)
+- Через пакетный менеджер (apt, yum, brew)
+- С официального сайта
+
+### Подключение к базе
+- **psql** — командная строка PostgreSQL
+- **pgAdmin** — веб-интерфейс
+- **DBeaver** — универсальный клиент
+- **DataGrip** — IDE от JetBrains
+
+### Базовая настройка psql
+
+#### Конфигурационные файлы
+psql использует несколько конфигурационных файлов:
+
+**1. ~/.psqlrc** (глобальные настройки для пользователя)
+```sql
+-- Включить расширенный вывод
+\x on
+
+-- Показать время выполнения запросов
+\timing on
+
+-- Установить формат вывода
+\pset format expanded
+
+-- Показать количество строк
+\pset tuples_only off
+
+-- Установить кодировку
+\encoding UTF8
+```
+
+**2. ~/.pgpass** (пароли для автоматического подключения)
+```
+# Формат: hostname:port:database:username:password
+localhost:5432:airport:postgres:postgres
+```
+
+**3. Переменные окружения**
+```bash
+# В ~/.bashrc или ~/.zshrc
+export PGHOST=localhost
+export PGPORT=5432
+export PGDATABASE=airport
+export PGUSER=postgres
+export PGPASSWORD=postgres
+```
+
+#### Полезные настройки psql
+
+**Алиасы для часто используемых команд:**
+```sql
+-- В ~/.psqlrc
+\set airport_db '\''\connect airport'\''
+\set show_tables '\''\dt'\''
+\set show_indexes '\''\di'\''
+\set show_functions '\''\df'\''
+\set show_views '\''\dv'\''
+```
+
+**Настройка промпта:**
+```sql
+-- Показать базу данных и пользователя
+\set PROMPT1 '%n@%M:%> '
+\set PROMPT2 '%n@%M:%> '
+
+-- Более информативный промпт
+\set PROMPT1 '%[%033[1;33m%]%n@%M:%[%033[1;36m%]%>%[%033[0m%] '
+```
+
+#### Основные команды psql
+
+**Подключение:**
+```bash
+# Подключение к базе
+psql -h localhost -p 5432 -U postgres -d airport
+
+# Подключение через Docker
+docker exec -it pg_course_db psql -U postgres -d airport
+```
+
+**Полезные команды внутри psql:**
+```sql
+-- Список баз данных
+\l
+
+-- Список таблиц
+\dt
+
+-- Описание таблицы
+\d+ airports
+
+-- Список пользователей
+\du
+
+-- Список схем
+\dn
+
+-- История команд
+\s
+
+-- Выход
+\q
+
+-- Справка
+\?
+```
+
+**Настройка вывода:**
+```sql
+-- Включить расширенный вывод
+\x on
+
+-- Показать время выполнения
+\timing on
+
+-- Установить ширину вывода
+\pset columns 120
+
+-- Показать заголовки
+\pset tuples_only off
+```
+
+#### Пример полного ~/.psqlrc
+```sql
+-- Основные настройки
+\timing on
+\x auto
+\pset format expanded
+\encoding UTF8
+
+-- Промпт
+\set PROMPT1 '%n@%M:%> '
+
+-- Алиасы
+\set airport_db '\''\connect airport'\''
+\set show_tables '\''\dt'\''
+\set show_indexes '\''\di'\''
+
+-- Приветственное сообщение
+\echo 'PostgreSQL подключен. Используйте :airport_db для переключения на базу airport'
+```
+
+#### Основные конфигурационные файлы PostgreSQL
+
+**1. postgresql.conf** — основные настройки сервера
+
+```ini
+# Сетевые настройки
+listen_addresses = '*'          # Слушать все интерфейсы
+port = 5432                     # Порт по умолчанию
+max_connections = 100           # Максимум подключений
+
+# Память
+shared_buffers = 128MB          # Общая память
+work_mem = 4MB                  # Память на операцию
+maintenance_work_mem = 64MB     # Память для обслуживания
+
+# Логирование
+log_destination = 'stderr'      # Куда писать логи
+logging_collector = on          # Включить сбор логов
+log_directory = 'log'           # Директория логов
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_statement = 'all'           # Логировать все SQL
+log_min_duration_statement = 1000  # Логировать запросы > 1 сек
+
+# WAL (Write-Ahead Logging)
+wal_level = replica             # Уровень WAL
+max_wal_size = 1GB              # Максимальный размер WAL
+checkpoint_completion_target = 0.9
+
+# Автовакуум
+autovacuum = on                 # Включить автовакуум
+autovacuum_max_workers = 3      # Количество воркеров
+```
+
+**2. pg_hba.conf** — настройки аутентификации и доступа
+
+```ini
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# Локальные подключения
+local   all             all                                     trust
+local   all             postgres                                trust
+
+# IPv4 локальные подключения
+host    all             all             127.0.0.1/32            md5
+host    all             all             ::1/128                 md5
+
+# IPv4 подключения из локальной сети
+host    all             all             192.168.1.0/24          md5
+
+# Подключения к конкретной базе
+host    airport         postgres        127.0.0.1/32            md5
+host    airport         app_user        127.0.0.1/32            md5
+
+# SSL подключения
+hostssl all             all             0.0.0.0/0               md5 clientcert=1
+```
+
+**Методы аутентификации:**
+- `trust` — без пароля (только для разработки)
+- `md5` — пароль в MD5 хеше
+- `scram-sha-256` — современный метод (PostgreSQL 10+)
+- `peer` — по имени пользователя ОС
+- `reject` — отклонить подключение
+
+**Пример настройки для разработки:**
+```ini
+# postgresql.conf (фрагмент)
+listen_addresses = 'localhost'
+port = 5432
+max_connections = 50
+shared_buffers = 256MB
+work_mem = 8MB
+log_statement = 'mod'           # Логировать только изменения
+log_min_duration_statement = 500
+
+# pg_hba.conf (фрагмент)
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+host    all             all             ::1/128                 trust
+```
+
+**Перезагрузка конфигурации:**
+```sql
+-- Перезагрузить конфигурацию без перезапуска
+SELECT pg_reload_conf();
+
+-- Проверить текущие настройки
+SHOW shared_buffers;
+SHOW max_connections;
+SHOW log_statement;
+```
+
+**Полезные команды для работы с конфигом:**
+```sql
+-- Показать все настройки
+SHOW ALL;
+
+-- Показать настройки по шаблону
+SHOW log_*;
+
+-- Изменить настройку в сессии
+SET work_mem = '16MB';
+SET log_statement = 'all';
+
+-- Сбросить настройку к значению по умолчанию
+RESET work_mem;
+```
 
 ## 2. Виды баз данных и их сравнение
 
@@ -35,7 +284,69 @@
 
 ---
 
+## Практические задания
+
+### Задание 1: Выбор СУБД для согласованности данных
+**Задача:** Выберите несколько вариантов СУБД для системы, где критически важна согласованность данных (например, банковская система).
+
+**Что проверить:**
+- Понимание ACID-свойств
+- Знание реляционных СУБД
+- Умение обосновать выбор
+
+**Возможные ответы:** PostgreSQL, MySQL, Oracle, MS SQL Server
+
+### Задание 2: Выбор NoSQL СУБД для неструктурированных данных
+**Задача:** Выберите несколько вариантов NoSQL СУБД для хранения неструктурированных данных (например, логи, события, документы).
+
+**Что проверить:**
+- Понимание различий между типами NoSQL
+- Знание сценариев применения
+- Умение выбрать подходящий тип
+
+**Возможные ответы:** MongoDB, Cassandra, Redis, Elasticsearch
+
+### Задание 3: Выбор клиента для работы с БД
+**Задача:** Какой клиент для работы с базой данных вы выбрали для прохождения курса? Обоснуйте свой выбор.
+
+**Что проверить:**
+- Понимание различий между клиентами
+- Умение выбрать инструмент под задачу
+- Знание возможностей разных клиентов
+
+**Возможные ответы:** pgAdmin, DBeaver, DataGrip, psql, Python/Java драйверы
+
+### Задание 4: Проверка Docker Compose
+**Задача:** Поднимите Docker Compose с тестовой базой данных и проверьте, что данные загрузились корректно.
+
+**Что проверить:**
+- Умение работать с Docker
+- Подключение к базе данных
+- Проверка загруженных данных
+
+**Критерии проверки:**
+- Контейнеры запущены без ошибок
+- Подключение к PostgreSQL работает
+- В таблицах есть данные (например, 20 аэропортов, 1000+ пассажиров)
+- pgAdmin доступен по адресу localhost:5050
+
+**Команды для проверки:**
+```bash
+# Запуск окружения
+docker-compose up -d
+
+# Проверка статуса контейнеров
+docker-compose ps
+
+# Подключение к базе и проверка данных
+docker exec -it pg_course_db psql -U postgres -d airport -c "SELECT COUNT(*) FROM airports;"
+docker exec -it pg_course_db psql -U postgres -d airport -c "SELECT COUNT(*) FROM passengers;"
+```
+
+---
+
 **В этом модуле:**
 - Научитесь устанавливать PostgreSQL и подключаться к нему
 - Поймете, чем реляционные БД отличаются от других типов
-- Сможете выбрать подходящую СУБД под задачу 
+- Сможете выбрать подходящую СУБД под задачу
+- Проверите практические навыки работы с Docker и базой данных 
