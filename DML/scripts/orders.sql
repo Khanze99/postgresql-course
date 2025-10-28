@@ -3,7 +3,6 @@ RETURNS VOID AS $$
 DECLARE
     user_rec RECORD;
     address_rec RECORD;
-    statuses TEXT[] := ARRAY['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
     payment_methods TEXT[] := ARRAY['card', 'paypal', 'cash_on_delivery'];
     order_notes TEXT[] := ARRAY[
         'Please call before delivery',
@@ -25,19 +24,20 @@ DECLARE
     total_amount NUMERIC(12,2);
 BEGIN
     -- Получаем случайных пользователей с адресами
-    FOR user_rec IN
-        SELECT u.id
+    FOR i IN 1..count loop
+        -- Выбираем случайного пользователя с адресом
+        SELECT u.* INTO user_rec
         FROM users u
         WHERE EXISTS (
             SELECT 1 FROM user_addresses ua WHERE ua.user_id = u.id
         )
         ORDER BY random()
-        LIMIT count
-    LOOP
-        -- Выбираем случайный адрес пользователя
+        LIMIT 1;
+
+        -- Выбираем случайный адрес этого пользователя
         SELECT * INTO address_rec
         FROM user_addresses
-        WHERE user_id = user_rec.id
+        WHERE user_id = user_rec.id  -- используем сохраненный ID
         ORDER BY random()
         LIMIT 1;
 
@@ -75,7 +75,7 @@ BEGIN
             shipping_address_id, payment_method, notes, created_at, updated_at
         ) VALUES (
             user_rec.id,
-            'ORD-' || to_char(order_date, 'YYYYMMDD') || '-' || lpad(order_counter::TEXT, 4, '0'),
+            'ORD-' || to_char(order_date, 'YYYYMMDD') || '-' || lpad(order_counter::TEXT, 4, '0') || '-' || (random() * 1000 + random() * 100)::int,
             selected_status,
             total_amount,
             address_rec.id,
@@ -93,4 +93,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Генерируем 100 заказов
-SELECT generate_orders(100);
+SELECT generate_orders(1000);
