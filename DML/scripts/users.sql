@@ -34,11 +34,11 @@ BEGIN
         -- Генерируем email в разных форматах
         CASE
             WHEN random() < 0.3 THEN
-                email_local_part := lower(first_name) || '.' || lower(last_name);
+                email_local_part := lower(first_name) || '.' || lower(last_name) || (random() * 1000)::VARCHAR;
             WHEN random() < 0.6 THEN
-                email_local_part := lower(substring(first_name from 1 for 1)) || lower(last_name);
+                email_local_part := lower(substring(first_name from 1 for 1)) || lower(last_name) || (random() * 1000)::VARCHAR;
             ELSE
-                email_local_part := lower(first_name) || floor(random() * 1000)::TEXT;
+                email_local_part := lower(first_name) || floor(random() * 1000)::TEXT || (random() * 1000)::VARCHAR;
         END CASE;
 
         email := email_local_part || '@' || domains[floor(random() * array_length(domains, 1)) + 1];
@@ -73,4 +73,4 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Генерируем 50 пользователей
-SELECT generate_users(50);
+SELECT generate_users(1000);
